@@ -130,14 +130,16 @@ if prompt := st.chat_input("What is up?"):
     user.print_and_add_message(prompt)
 
     # ------------------------------------------------------- UniMtach -------------------------------------------------------
+    #========================= Introduction ==========================
     if prompt == "UniMatch" or prompt == "unimatch":
         assistant.print_and_add_message("Great! Let's find the perfect match for you! 🎓")
         assistant.print_and_add_message("Please, answer the following questions to help me find the best university for you:")
 
         #--- Update status unimatch
         assistant.set_unimatch_on(True)
+    #================================================================
 
-
+    #========================= CHECKING ==========================
     if assistant.get_last_user_reply() != user.get_last_reply():
         #--- Update user replies counter
         assistant.update_user_replies_counter()
@@ -148,10 +150,15 @@ if prompt := st.chat_input("What is up?"):
         user.update_user_profile()
     else:
         assistant.unimatch_on = False
-
+    #--- check if matching is done on the cache
+    with open("cache-data.json") as f:
+        data = json.load(f)
+    if data["matching_done"] == True:
+        assistant.unimatch_on = False
+        assistant.unibuddy_on = True
+    #================================================================
     
-    
-    #--- Case of finished questions
+    #============================== MATCHING ==============================
     if assistant.check_finished_questions():
         #--- load user profile from json
         student_data = load_student_data()
@@ -161,11 +168,21 @@ if prompt := st.chat_input("What is up?"):
 
         #--- Match the student data with the universities data
         universities_similarities = match(student_data, universities_data, universities_names)
+        # universities_similarities = {uniA: 0. , uniB: 0. , uniC: 0.}
+        #--- Sort the universities based on the similarities
+        universities_similarities = dict(sorted(universities_similarities.items(), key=lambda item: item[1], reverse=True))
 
-        #--- Chat Reply with the best university
+        #------- Printing the Results -------
         sleep(time_sleep_longer)
         assistant.print_and_add_message(f"Based on your answers, I found the best university for you are 🎉")
-        assistant.print_and_add_message(universities_similarities)
+        
+        # Print the 5 best universities and show the similarities
+        top_5_universities = list(universities_similarities.items())[:5]
+        for uni, sim in top_5_universities:
+            assistant.print_and_add_message(f"{uni} with similarity of {int(sim*10000)/100}%")
+
+        # --- Print a bar chart with the similarities and universities
+        st.bar_chart(universities_similarities)
 
         #--- Clean User Profile after match
         with open("cache-data.json") as f:
@@ -174,19 +191,32 @@ if prompt := st.chat_input("What is up?"):
         with open("cache-data.json", "w") as f:
             json.dump(data, f)
 
+        #--- Update the json file with matching done
+        with open("cache-data.json") as f:
+            data = json.load(f)
+        data["matching_done"] = True
+        with open("cache-data.json", "w") as f:
+            json.dump(data, f)
+    #=====================================================================
 
-    # ---- Question Loop for UniMatch ----
+    #============================== QUESTION ==============================
     if assistant.unimatch_on:
         assistant.unimatch_question()
+    #=====================================================================
 
     
-
-
     # ------------------------------------------------------- UniBuddy -------------------------------------------------------
     elif prompt == "UniBuddy":
         assistant.print_and_add_message("Great! Let's explore more about the universities! 📚")
-
         #--- Update status unibuddy
         assistant.set_unibuddy_on(True)
-        pass
+
+    if assistant.unibuddy_on:
+        st.write("UniBuddy is under construction! 🚧")
+
+        # TODO:
+        # - Test API from chatgpt
+        # - give an overview of the user profile and the best university, and why it is the best match
+        # - ask if the user wants to explore a specific university
+        # - use as initial prompt the data from that university and than use chatgpt
 
