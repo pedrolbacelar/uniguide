@@ -162,6 +162,10 @@ if prompt := st.chat_input("What is up?"):
         #--- Match the student data with the universities data
         universities_similarities = match(student_data, universities_data, universities_names)
 
+        #--- Chat Reply with the best university
+        sleep(time_sleep_longer)
+        assistant.print_and_add_message(f"Based on your answers, I found the best university for you are 🎉")
+        assistant.print_and_add_message(universities_similarities)
 
         #--- Clean User Profile after match
         with open("cache-data.json") as f:
