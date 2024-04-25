@@ -1,6 +1,7 @@
 import streamlit as st
 from time import sleep
 import json
+from matcher import load_student_data, load_universities_database, match
 
 #------------------------------------------------------- Class & Functions -------------------------------------------------------
 class Assistant():
@@ -149,23 +150,25 @@ if prompt := st.chat_input("What is up?"):
         assistant.unimatch_on = False
 
     
-    # ---- Check to see if there is a new answer from the user ----
-    #st.write(f"Assistant unimatch_on: {assistant.unimatch_on}")
-    #st.write(f"(assitant)last_user_reply: {assistant.get_last_user_reply()}")
-    #st.write(f"(user)user_last_reply: {user.get_last_reply()}")
-    #st.write(f"User replies counter: {assistant.user_replies_counter}")
-    
     
     #--- Case of finished questions
     if assistant.check_finished_questions():
         #--- load user profile from json
+        student_data = load_student_data()
+    
+        #--- load universities data from json
+        universities_data, universities_names = load_universities_database()
+
+        #--- Match the student data with the universities data
+        universities_similarities = match(student_data, universities_data, universities_names)
+
+
+        #--- Clean User Profile after match
         with open("cache-data.json") as f:
             data = json.load(f)
-        user_profile = data["user_profile"]
-        st.write(f"User Profile: {user_profile}")
-        
-        #--- Clean User Profile after match
-        pass
+        data["user_profile"] = ""
+        with open("cache-data.json", "w") as f:
+            json.dump(data, f)
 
 
     # ---- Question Loop for UniMatch ----
