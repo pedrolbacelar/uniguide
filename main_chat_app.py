@@ -158,7 +158,12 @@ if prompt := st.chat_input("What is up?"):
     
     #--- Case of finished questions
     if assistant.check_finished_questions():
-
+        #--- load user profile from json
+        with open("cache-data.json") as f:
+            data = json.load(f)
+        user_profile = data["user_profile"]
+        st.write(f"User Profile: {user_profile}")
+        
         #--- Clean User Profile after match
         pass
 
