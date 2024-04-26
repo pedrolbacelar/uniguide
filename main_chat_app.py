@@ -171,11 +171,13 @@ time_sleep_longer = 1
 
 #--- Replicate API Settings & llama2
 #test_secret = st.secrets['test']
-st.write(st.secrets["test"])
+st.write("Hello World")
+test_secret = st.secrets["db_username"]
+st.write(test_secret)
 
-replicate_api = st.secrets['REPLICATE_API_TOKEN']
-os.environ['REPLICATE_API_TOKEN'] = replicate_api
-llama2 = Llama2()
+#replicate_api = st.secrets['REPLICATE_API_TOKEN']
+#os.environ['REPLICATE_API_TOKEN'] = replicate_api
+#llama2 = Llama2()
 
 
 # Initialize chat history
