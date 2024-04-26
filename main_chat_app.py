@@ -163,11 +163,11 @@ time_sleep_longer = 1
 
 #--- OpenAI API Settings
 # Set OpenAI API key from Streamlit secrets
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+#client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Set a default model
-if "openai_model" not in st.session_state:
-    st.session_state["openai_model"] = "gpt-3.5-turbo"
+#if "openai_model" not in st.session_state:
+#    st.session_state["openai_model"] = "gpt-3.5-turbo"
 
 #--- Replicate API Settings & llama2
 replicate_api = st.secrets['REPLICATE_API_TOKEN']
