@@ -2,6 +2,10 @@ import streamlit as st
 from time import sleep
 import json
 from matcher import load_student_data, load_universities_database, match
+from openai import OpenAI
+import replicate
+import os
+
 # https://uniguide.streamlit.app/
 
 #------------------------------------------------------- Class & Functions -------------------------------------------------------
@@ -54,7 +58,11 @@ class Assistant():
             json.dump(data, f)
 
     def check_finished_questions(self):
-        if self.user_replies_counter > len(self.unimatch_questions):
+        #--- get matching_done from the cache
+        with open("cache-data.json") as f:
+            data = json.load(f)
+        matching_done = data["matching_done"]
+        if self.user_replies_counter > len(self.unimatch_questions) and matching_done == False:
             self.print_and_add_message("Great! I have all the information I need. Let me find the best university for you! 🎓")
             self.unimatch_on = False
             self.user_replies_counter = 0
@@ -97,7 +105,52 @@ class User():
     
     def get_last_reply(self):
         return self.messages[-1]["content"]
-    
+
+class Llama2():
+    def __init__(self):
+        #--- Settings
+        self.temperature = 0.1
+        self.top_p = 0.9
+        self.max_length = 256
+
+        #--- Models
+        self.llm_7b = "a16z-infra/llama7b-v2-chat:4f0a4744c7295c024a1de15e1a63c880d3da035fa1f49bfd344fe076074c8eea"
+        self.llm_13b = "a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5"
+
+        #--- Instructions
+        self.instructions = [
+            "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'.",
+            "Always give short answers and do not provide too much information.",
+            "You only answer requests related to universities. If the topic is not this, answer: 'I'm not trained with data not related to universities.'",
+        ]
+
+    def generate_llama2_response(self, prompt_input, model = "llm_13b"):
+        #--- Select model
+        if model == "llm_13b": model = self.llm_13b
+        if model == "llm_7b": model = self.llm_7b
+        
+        #--- Add initial instructions
+        for instruction in self.instructions:
+            string_dialogue = instruction + "\n\n"
+
+        #--- Add the dialogue history
+        for dict_message in st.session_state.messages:
+            if dict_message["role"] == "user":
+                string_dialogue += "User: " + dict_message["content"] + "\n\n"
+            else:
+                string_dialogue += "Assistant: " + dict_message["content"] + "\n\n"
+        
+        #--- Run the model
+        output = replicate.run(model, 
+                            input={"prompt": f"{string_dialogue} {prompt_input} Assistant: "})
+        return output
+
+    def give_profile_overview(self, loaded_profile, best_university):
+        #--- Give an overview of the user profile and the best university, and why it is the best match
+        overview_profile = f"Why I'm good match with {best_university}? (answer only for the best university)"
+
+
+        return self.generate_llama2_response(overview_profile)
 
 st.title("UniGuide Chat App")
 # ------------------------------------------------------- SETUP -------------------------------------------------------
@@ -107,6 +160,18 @@ user = User()
 
 time_sleep_fast = 0.25
 time_sleep_longer = 1
+
+#--- OpenAI API Settings
+# Set OpenAI API key from Streamlit secrets
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# Set a default model
+if "openai_model" not in st.session_state:
+    st.session_state["openai_model"] = "gpt-3.5-turbo"
+
+#--- Replicate API Settings & llama2
+replicate_api = st.secrets['REPLICATE_API_TOKEN']
+llama2 = Llama2()
 
 
 # Initialize chat history
@@ -138,6 +203,27 @@ if prompt := st.chat_input("What is up?"):
 
         #--- Update status unimatch
         assistant.set_unimatch_on(True)
+        
+        #--- Update matching_done to False
+        with open("cache-data.json") as f:
+            data = json.load(f)
+        data["matching_done"] = False
+        data["user_profile"] = ""
+        data["user_replies_counter"] = 0
+        with open("cache-data.json", "w") as f:
+            json.dump(data, f)
+
+    if prompt == "UniBuddy" or prompt == "unibuddy":
+        assistant.print_and_add_message("Great! Let's explore more about the universities! 📚")
+        #--- Update status unibuddy
+        assistant.set_unibuddy_on(True)
+        #--- Update matching_done to True
+        with open("cache-data.json") as f:
+            data = json.load(f)
+        data["matching_done"] = True
+        with open("cache-data.json", "w") as f:
+            json.dump(data, f)
+
     #================================================================
 
     #========================= CHECKING ==========================
@@ -174,8 +260,9 @@ if prompt := st.chat_input("What is up?"):
         universities_similarities = dict(sorted(universities_similarities.items(), key=lambda item: item[1], reverse=True))
 
         #------- Printing the Results -------
-        sleep(time_sleep_longer)
-        assistant.print_and_add_message(f"Based on your answers, I found the best university for you are 🎉")
+        with st.spinner("Thinking..."):
+            sleep(3)
+            assistant.print_and_add_message(f"Based on your answers, I found the best university for you are 🎉")
         
         # Print the 5 best universities and show the similarities
         top_5_universities = list(universities_similarities.items())[:5]
@@ -198,6 +285,23 @@ if prompt := st.chat_input("What is up?"):
         data["matching_done"] = True
         with open("cache-data.json", "w") as f:
             json.dump(data, f)
+        
+        #---- User Profile Overview ----
+        # Best University
+        best_university = top_5_universities[0][0]
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                response = llama2.give_profile_overview(student_data, best_university)
+                placeholder = st.empty()
+                full_response = ''
+                for item in response:
+                    full_response += item
+                    placeholder.markdown(full_response)
+                placeholder.markdown(full_response)
+            message = {"role": "assistant", "content": full_response}
+            st.session_state.messages.append(message)
+        
+
     #=====================================================================
 
     #============================== QUESTION ==============================
@@ -207,17 +311,27 @@ if prompt := st.chat_input("What is up?"):
 
     
     # ------------------------------------------------------- UniBuddy -------------------------------------------------------
-    elif prompt == "UniBuddy":
-        assistant.print_and_add_message("Great! Let's explore more about the universities! 📚")
-        #--- Update status unibuddy
-        assistant.set_unibuddy_on(True)
+
 
     if assistant.unibuddy_on:
-        st.write("UniBuddy is under construction! 🚧")
 
         # TODO:
         # - Test API from chatgpt
         # - give an overview of the user profile and the best university, and why it is the best match
         # - ask if the user wants to explore a specific university
         # - use as initial prompt the data from that university and than use chatgpt
+
+        # Display assistant response in chat message container
+        if st.session_state.messages[-1]["role"] != "assistant":
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    response = llama2.generate_llama2_response(prompt)
+                    placeholder = st.empty()
+                    full_response = ''
+                    for item in response:
+                        full_response += item
+                        placeholder.markdown(full_response)
+                    placeholder.markdown(full_response)
+            message = {"role": "assistant", "content": full_response}
+            st.session_state.messages.append(message)
 
