@@ -170,8 +170,7 @@ time_sleep_longer = 1
 #    st.session_state["openai_model"] = "gpt-3.5-turbo"
 
 #--- Replicate API Settings & llama2
-#replicate_api = st.secrets['REPLICATE_API_TOKEN']
-replicate_api = "r8_dy9Cxc78exa0IhYwtH4TTuGpxIZ8tc33WJSxp"
+replicate_api = st.secrets['REPLICATE_API_TOKEN']
 os.environ['REPLICATE_API_TOKEN'] = replicate_api
 llama2 = Llama2()
 
