@@ -171,7 +171,7 @@ time_sleep_longer = 1
 
 #--- Replicate API Settings & llama2
 #test_secret = st.secrets['test']
-st.write(st.secrets.key)
+st.write(st.secrets["test"])
 
 replicate_api = st.secrets['REPLICATE_API_TOKEN']
 os.environ['REPLICATE_API_TOKEN'] = replicate_api
